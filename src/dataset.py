@@ -41,9 +41,10 @@ DATASET_CONFIGS = {
 
 
 class MoleculeDataset:
-    def __init__(self, name: str, graphs: Sequence[Dict[str, np.ndarray]]):
+    def __init__(self, name: str, graphs: Sequence[Dict[str, np.ndarray]], feature_set: str = "torchdrug_default"):
         self.name = name
         self.graphs = list(graphs)
+        self.feature_set = feature_set
 
     def __len__(self) -> int:
         return len(self.graphs)
@@ -62,6 +63,10 @@ class MoleculeDataset:
     @property
     def node_feature_dim(self) -> int:
         return int(self.graphs[0]["node_feature"].shape[-1])
+
+    @property
+    def edge_feature_dim(self) -> int:
+        return int(self.graphs[0]["edge_feature"].shape[-1])
 
 
 def md5sum(path: Path) -> str:
@@ -95,17 +100,22 @@ def download_dataset(name: str, data_dir: Path) -> Path:
     raise RuntimeError(f"Failed to download {name}: {last_error}")
 
 
-def load_dataset(name: str, data_dir: Path, use_cache: bool = True) -> MoleculeDataset:
+def load_dataset(
+    name: str,
+    data_dir: Path,
+    use_cache: bool = True,
+    feature_set: str = "torchdrug_default",
+) -> MoleculeDataset:
     if name not in DATASET_CONFIGS:
         raise ValueError(f"Unknown dataset `{name}`. Available: {sorted(DATASET_CONFIGS)}")
 
     processed_dir = data_dir / "processed"
     processed_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = processed_dir / f"{name}_graphs.pkl"
+    cache_path = processed_dir / f"{name}_{feature_set}_graphs.pkl"
     if use_cache and cache_path.exists():
         with cache_path.open("rb") as fin:
             graphs = pickle.load(fin)
-        return MoleculeDataset(name, graphs)
+        return MoleculeDataset(name, graphs, feature_set=feature_set)
 
     config = DATASET_CONFIGS[name]
     csv_path = download_dataset(name, data_dir)
@@ -119,7 +129,7 @@ def load_dataset(name: str, data_dir: Path, use_cache: bool = True) -> MoleculeD
             if label_text == "":
                 skipped += 1
                 continue
-            graph = smiles_to_graph(smiles, float(label_text))
+            graph = smiles_to_graph(smiles, float(label_text), feature_set=feature_set)
             if graph is None:
                 skipped += 1
                 continue
@@ -129,11 +139,11 @@ def load_dataset(name: str, data_dir: Path, use_cache: bool = True) -> MoleculeD
         with cache_path.open("wb") as fout:
             pickle.dump(graphs, fout)
     print(f"Loaded {name}: {len(graphs)} molecules, skipped {skipped}")
-    return MoleculeDataset(name, graphs)
+    return MoleculeDataset(name, graphs, feature_set=feature_set)
 
 
 def subset(dataset: MoleculeDataset, indices: Iterable[int]) -> MoleculeDataset:
-    return MoleculeDataset(dataset.name, [dataset.graphs[i] for i in indices])
+    return MoleculeDataset(dataset.name, [dataset.graphs[i] for i in indices], feature_set=dataset.feature_set)
 
 
 def random_split(
@@ -195,12 +205,14 @@ def split_dataset(
     raise ValueError(f"Unknown split `{split}`")
 
 
-def collate_batch(graphs: Sequence[Dict[str, np.ndarray]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def collate_batch(graphs: Sequence[Dict[str, np.ndarray]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     batch_size = len(graphs)
     max_node = max(int(item["node_feature"].shape[0]) for item in graphs)
     feature_dim = int(graphs[0]["node_feature"].shape[-1])
+    edge_feature_dim = int(graphs[0]["edge_feature"].shape[-1])
     node_feature = np.zeros((batch_size, max_node, feature_dim), dtype=np.float32)
     adjacency = np.zeros((batch_size, max_node, max_node), dtype=np.float32)
+    edge_feature = np.zeros((batch_size, max_node, max_node, edge_feature_dim), dtype=np.float32)
     node_mask = np.zeros((batch_size, max_node), dtype=np.float32)
     label = np.zeros((batch_size, 1), dtype=np.float32)
 
@@ -208,9 +220,10 @@ def collate_batch(graphs: Sequence[Dict[str, np.ndarray]]) -> Tuple[np.ndarray, 
         num_node = int(item["node_feature"].shape[0])
         node_feature[i, :num_node] = item["node_feature"]
         adjacency[i, :num_node, :num_node] = item["adjacency"]
+        edge_feature[i, :num_node, :num_node] = item["edge_feature"]
         node_mask[i, :num_node] = 1.0
         label[i] = item["label"]
-    return node_feature, adjacency, node_mask, label
+    return node_feature, adjacency, edge_feature, node_mask, label
 
 
 def batch_iterator(
@@ -218,7 +231,7 @@ def batch_iterator(
     batch_size: int,
     shuffle: bool,
     seed: int,
-) -> Iterable[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+) -> Iterable[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     indices = list(range(len(dataset)))
     if shuffle:
         random.Random(seed).shuffle(indices)

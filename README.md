@@ -20,7 +20,7 @@
 ├── src/
 │   ├── __init__.py
 │   ├── dataset.py        # 下载 CSV、RDKit 构图、scaffold/random split、batch padding
-│   ├── features.py       # 原子特征与 SMILES -> graph
+│   ├── features.py       # TorchDrug default atom/bond 特征与 SMILES -> graph
 │   ├── metrics.py        # AUROC / AUPRC
 │   ├── models.py         # MindSpore GIN / GAT
 │   └── trainer.py        # MindSpore loss、optimizer、训练与评估循环
@@ -78,35 +78,51 @@ jupyter notebook
 冒烟测试：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 1 --batch_size 32 --seed 0
+python run_experiment.py --dataset bace --model gin --epoch 1 --batch_size 32 --seed 0 --device_target GPU
 ```
 
 四组核心实验：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0
-python run_experiment.py --dataset bace --model gat --epoch 50 --batch_size 64 --seed 0
-python run_experiment.py --dataset hiv --model gin --epoch 50 --batch_size 64 --seed 0
-python run_experiment.py --dataset hiv --model gat --epoch 50 --batch_size 64 --seed 0
+python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset bace --model gat --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset hiv --model gin --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset hiv --model gat --epoch 50 --batch_size 64 --seed 0 --device_target GPU
 ```
 
 一次运行 BACE / HIV 与 GIN / GAT 的 2×2 组合：
 
 ```bash
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 0
+python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 0 --device_target GPU
 ```
 
 多个随机种子：
 
 ```bash
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 1
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 2
+python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 1 --device_target GPU
+python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 2 --device_target GPU
 ```
 
 默认使用 scaffold split。若需要随机划分对照：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0 --split random
+python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0 --split random --device_target GPU
+```
+
+## 对比实验
+
+默认 `--variant torchdrug_like` 会尽量贴近 TorchDrug 的默认实现：
+
+- 节点特征：复刻 TorchDrug `features.atom.default`，69 维。
+- 边特征：复刻 TorchDrug `features.bond.default`，19 维。
+- 模型结构：edge feature 输入、BatchNorm、shortcut、concat hidden、sum readout。
+- 默认隐藏维度：256。
+
+若要和早期教学简化版对比，可以运行 `--variant simple`：
+
+```bash
+python run_experiment.py --dataset bace --model gin --variant simple --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset bace --model gin --variant torchdrug_like --epoch 50 --batch_size 64 --seed 0 --device_target GPU
 ```
 
 ## 命令行参数
@@ -131,6 +147,9 @@ python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 -
 --num_layer      GNN 层数，默认 4
 --num_head       GAT 注意力头数，默认 4
 --dropout        dropout，默认 0.1
+--variant        torchdrug_like / simple，默认 torchdrug_like
+--readout        sum / mean，torchdrug_like 默认 sum
+--num_mlp_layer  图级预测头 MLP 层数，torchdrug_like 默认 1
 ```
 
 ## 实验设计
@@ -144,13 +163,15 @@ python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 -
 
 - 使用 RDKit 解析 SMILES。
 - 原子作为节点，化学键作为无向边。
-- 节点特征包含原子类型、度数、形式电荷、氢原子数、杂化类型、芳香性、环信息和相对原子质量。
-- batch 内使用 padding 得到稠密邻接矩阵和节点 mask。
+- 默认 `torchdrug_like` 特征复刻 TorchDrug `atom_default`：原子符号、手性、度数、形式电荷、氢原子数、自由基电子数、杂化、芳香性和环信息。
+- 默认 `torchdrug_like` 边特征复刻 TorchDrug `bond_default`：键类型、键方向、立体构型和共轭信息。
+- batch 内使用 padding 得到稠密邻接矩阵、边特征张量和节点 mask。
 
 模型：
 
-- GIN：邻居求和聚合，MLP 更新节点表示，masked mean pooling 得到图表示。
-- GAT：多头注意力，基于邻接矩阵做 masked softmax，聚合邻居节点表示。
+- GIN：邻居求和聚合，edge feature 线性映射后加入消息，MLP 更新节点表示，默认 sum readout。
+- GAT：多头注意力，edge feature 加入 attention key，基于邻接矩阵做 masked softmax，默认 sum readout。
+- `torchdrug_like` 变体启用 BatchNorm、shortcut、concat hidden，以贴近 TorchDrug GIN/GAT 参数。
 
 训练：
 
@@ -169,8 +190,9 @@ results/experiment_results.csv
 字段包括：
 
 ```text
-timestamp,framework,dataset,model,seed,split,epoch,batch_size,
-hidden_dim,num_layer,valid_auroc,valid_auprc,test_auroc,test_auprc
+timestamp,framework,dataset,model,variant,feature_set,seed,split,epoch,batch_size,
+hidden_dim,num_layer,num_head,readout,num_mlp_layer,node_feature_dim,edge_feature_dim,
+valid_auroc,valid_auprc,test_auroc,test_auprc
 ```
 
 课程要求的 `dataset`、`model`、`seed`、valid/test AUROC、valid/test AUPRC 都已经包含。

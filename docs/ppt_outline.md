@@ -36,26 +36,31 @@
 
 - 下载公开 CSV。
 - RDKit 解析 SMILES。
-- 提取原子特征。
-- 构造邻接矩阵。
+- 复刻 TorchDrug default atom feature，节点特征 69 维。
+- 复刻 TorchDrug default bond feature，边特征 19 维。
+- 构造邻接矩阵和边特征张量。
 - 进行 scaffold split。
 
 ## 第 7 页：GIN 模型
 
 - 邻居节点求和聚合。
+- 边特征线性映射后加入消息。
 - MLP 更新节点表示。
-- 图级 pooling 后分类。
+- BatchNorm、shortcut、concat hidden、sum readout。
 - 适合捕捉分子局部结构模式。
 
 ## 第 8 页：GAT 模型
 
 - 多头注意力计算邻居权重。
+- 边特征加入 attention key。
 - masked softmax 限制在分子图边上。
 - 加权聚合节点表示。
 
 ## 第 9 页：实验设置
 
 - 框架：MindSpore。
+- 复现变体：torchdrug_like。
+- 对照变体：simple。
 - Loss：BCEWithLogitsLoss。
 - Optimizer：Adam。
 - Metrics：AUROC、AUPRC。

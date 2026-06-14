@@ -25,10 +25,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--result_csv", type=Path, default=PROJECT_ROOT / "results" / "experiment_results.csv")
     parser.add_argument("--device_target", choices=["CPU", "GPU", "Ascend"], default="CPU")
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--hidden_dim", type=int, default=128)
+    parser.add_argument("--hidden_dim", type=int, default=256)
     parser.add_argument("--num_layer", type=int, default=4)
     parser.add_argument("--num_head", type=int, default=4)
     parser.add_argument("--dropout", type=float, default=0.1)
+    parser.add_argument("--variant", choices=["torchdrug_like", "simple"], default="torchdrug_like")
+    parser.add_argument("--readout", choices=["sum", "mean"], default="sum")
+    parser.add_argument("--num_mlp_layer", type=int, default=1)
     parser.add_argument("--no_cache", action="store_true", help="Disable processed graph cache.")
     return parser.parse_args()
 
@@ -61,17 +64,33 @@ def append_result(csv_path: Path, row: Dict[str, object]) -> None:
         "framework",
         "dataset",
         "model",
+        "variant",
+        "feature_set",
         "seed",
         "split",
         "epoch",
         "batch_size",
         "hidden_dim",
         "num_layer",
+        "num_head",
+        "readout",
+        "num_mlp_layer",
+        "node_feature_dim",
+        "edge_feature_dim",
         "valid_auroc",
         "valid_auprc",
         "test_auroc",
         "test_auprc",
     ]
+    if csv_path.exists() and csv_path.stat().st_size > 0:
+        with csv_path.open("r", encoding="utf-8") as fin:
+            old_header = fin.readline().strip()
+        new_header = ",".join(fieldnames)
+        if old_header != new_header:
+            backup = csv_path.with_name(f"{csv_path.stem}_legacy{csv_path.suffix}")
+            csv_path.replace(backup)
+            print(f"Existing result schema differs. Moved old result file to: {backup}")
+
     write_header = not csv_path.exists()
     with csv_path.open("a", newline="", encoding="utf-8") as fout:
         writer = csv.DictWriter(fout, fieldnames=fieldnames)
@@ -90,20 +109,27 @@ def run_one(args: argparse.Namespace, dataset_name: str, model_name: str) -> Dic
     set_seed(ms, np, args.seed)
 
     print(f"\n=== MindSpore | dataset={dataset_name} model={model_name} seed={args.seed} ===")
-    dataset = load_dataset(dataset_name, args.data_dir, use_cache=not args.no_cache)
+    feature_set = "simple" if args.variant == "simple" else "torchdrug_default"
+    effective_readout = "mean" if args.variant == "simple" else args.readout
+    effective_num_mlp_layer = 2 if args.variant == "simple" else args.num_mlp_layer
+    dataset = load_dataset(dataset_name, args.data_dir, use_cache=not args.no_cache, feature_set=feature_set)
     train_set, valid_set, test_set = split_dataset(dataset, args.split, args.seed)
     print(
         f"split sizes: train={len(train_set)}, valid={len(valid_set)}, test={len(test_set)} | "
-        f"node feature dim={dataset.node_feature_dim}"
+        f"node feature dim={dataset.node_feature_dim}, edge feature dim={dataset.edge_feature_dim}"
     )
 
     model = build_model(
         model_name,
         input_dim=dataset.node_feature_dim,
+        edge_input_dim=dataset.edge_feature_dim,
         hidden_dim=args.hidden_dim,
         num_layer=args.num_layer,
         num_head=args.num_head,
         dropout=args.dropout,
+        variant=args.variant,
+        readout=args.readout,
+        num_mlp_layer=args.num_mlp_layer,
     )
     config = TrainConfig(epoch=args.epoch, batch_size=args.batch_size, lr=args.lr, seed=args.seed)
     valid_metrics, test_metrics = fit(model, train_set, valid_set, test_set, config)
@@ -113,12 +139,19 @@ def run_one(args: argparse.Namespace, dataset_name: str, model_name: str) -> Dic
         "framework": "MindSpore",
         "dataset": dataset_name,
         "model": model_name,
+        "variant": args.variant,
+        "feature_set": feature_set,
         "seed": args.seed,
         "split": args.split,
         "epoch": args.epoch,
         "batch_size": args.batch_size,
         "hidden_dim": args.hidden_dim,
         "num_layer": args.num_layer,
+        "num_head": args.num_head,
+        "readout": effective_readout,
+        "num_mlp_layer": effective_num_mlp_layer,
+        "node_feature_dim": dataset.node_feature_dim,
+        "edge_feature_dim": dataset.edge_feature_dim,
         "valid_auroc": valid_metrics["auroc"],
         "valid_auprc": valid_metrics["auprc"],
         "test_auroc": test_metrics["auroc"],
