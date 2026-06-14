@@ -63,7 +63,9 @@ class TorchDrugGINLayer(nn.Cell):
         self.activation = nn.ReLU()
         self.segment = SegmentOps()
 
-    def construct(self, node_feature, edge_list, edge_feature):
+    def construct(self, node_feature, edge_list, edge_feature, node_index=None):
+        # node_index is accepted for a uniform layer interface but unused here:
+        # GIN aggregates only over real edges and has no explicit self-loops.
         num_node = node_feature.shape[0]
         node_in = edge_list[:, 0]
         node_out = edge_list[:, 1]
