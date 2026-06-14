@@ -1,0 +1,1 @@
+timestamp,framework,dataset,model,seed,split,epoch,batch_size,hidden_dim,num_layer,valid_auroc,valid_auprc,test_auroc,test_auprc

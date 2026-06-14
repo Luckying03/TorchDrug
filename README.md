@@ -1,143 +1,136 @@
-# TorchDrug 分子活性预测实验
+# 基于 MindSpore 的 TorchDrug 论文简化复现
 
-这个仓库只保存课程大作业相关的实验脚本，不包含也不修改 `DeepGraphLearning/torchdrug` 源码。实验目标是使用 TorchDrug 平台中的 GIN 和 GAT 模型，在 BACE 与 HIV 数据集上完成分子二分类活性预测。
+本项目用于研究生课程大作业。选题论文为 **TorchDrug: A Powerful and Flexible Machine Learning Platform for Drug Discovery**。原论文提出了面向药物发现的机器学习平台 TorchDrug，本项目不复现完整平台，而是选取其中最典型的分子性质预测任务做简化复现。
 
-## 仓库内容
+本项目遵守课程要求：
+
+- 不直接调用 TorchDrug 或 PyTorch 训练模型。
+- 使用 RDKit 处理 SMILES 并构造分子图。
+- 使用 MindSpore 实现 GIN/GAT、loss、训练循环和评估。
+- 在 BACE 和 HIV 数据集上完成分子二分类活性预测。
+
+## 项目结构
 
 ```text
 .
 ├── README.md
+├── requirements.txt
 ├── check_env.py
-└── run_experiment.py
+├── run_experiment.py
+├── src/
+│   ├── __init__.py
+│   ├── dataset.py        # 下载 CSV、RDKit 构图、scaffold/random split、batch padding
+│   ├── features.py       # 原子特征与 SMILES -> graph
+│   ├── metrics.py        # AUROC / AUPRC
+│   ├── models.py         # MindSpore GIN / GAT
+│   └── trainer.py        # MindSpore loss、optimizer、训练与评估循环
+├── notebooks/
+│   └── TorchDrug_MindSpore_Reproduction.ipynb
+├── results/
+│   └── experiment_results.csv
+└── docs/
+    ├── report_outline.md
+    └── ppt_outline.md
 ```
 
-运行实验后会自动生成：
+运行实验后会自动生成 `data/` 缓存目录，保存下载的 CSV 和处理后的分子图缓存。
 
-```text
-.
-├── data/                  # TorchDrug 数据集缓存
-└── results/
-    └── results.csv        # 每次实验追加写入的结果
+## 环境安装
+
+建议使用 Python 3.9 或 3.10。MindSpore 不同硬件后端安装方式不同，优先参考 MindSpore 官方安装页面选择 CPU / GPU / Ascend 对应命令。
+
+CPU 环境示例：
+
+```bash
+conda create -n ms-gnn python=3.9 -y
+conda activate ms-gnn
+pip install mindspore
+conda install -c conda-forge rdkit -y
+pip install numpy scikit-learn pandas matplotlib notebook ipykernel
 ```
 
-建议不要把 `data/` 和 `results/` 中的大文件上传到代码仓库。可以只提交整理后的结果表或报告截图。
+如果你的系统无法直接安装 MindSpore，Windows 用户可以考虑使用 WSL2 / Linux 环境完成实验。
 
-## 是否需要上传 TorchDrug 源码
-
-不需要。TorchDrug 是第三方依赖，推荐通过 conda 或 pip 安装。
-
-如果你的机器上有本地 `torchdrug/` 源码目录，脚本也能自动尝试使用以下位置：
-
-```text
-当前仓库/torchdrug
-当前仓库的上一级/torchdrug
-```
-
-所以可以把本仓库和 `torchdrug/` 放成同级目录：
-
-```text
-Graph/
-├── torchdrug/
-└── torchdrug-experiments/
-    ├── README.md
-    ├── check_env.py
-    └── run_experiment.py
-```
-
-也可以完全不放源码，只要 Python 环境中已经安装好 `torchdrug` 包即可。
-
-## 环境检查
-
-先运行：
+检查环境：
 
 ```bash
 python check_env.py
 ```
 
-如果看到 TorchDrug 或依赖导入失败，先按下一节创建新环境。当前我检查到原环境是 Python 3.11.4，而 TorchDrug 声明支持 `>=3.7,<3.11`，因此建议使用 Python 3.10。
+## Notebook 运行
 
-## 推荐环境安装
+Notebook 文件：
 
-Windows / Conda 推荐：
-
-```bash
-conda create -n torchdrug-course python=3.10 -y
-conda activate torchdrug-course
-conda install torchdrug -c milagraph -c conda-forge -c pytorch -c pyg -y
-python check_env.py
+```text
+notebooks/TorchDrug_MindSpore_Reproduction.ipynb
 ```
 
-如果 conda 安装 TorchDrug 解依赖失败，可以采用 CPU 手动安装方案：
+Notebook 中每个代码块前都有 Markdown 说明，适合课堂展示和报告截图。进入项目根目录后启动：
 
 ```bash
-conda create -n torchdrug-course python=3.10 -y
-conda activate torchdrug-course
-conda install pytorch=1.13.1 cpuonly -c pytorch -y
-conda install rdkit decorator matplotlib tqdm networkx ninja jinja2 lmdb -c conda-forge -y
-pip install fair-esm
-pip install torch-scatter torch-cluster -f https://data.pyg.org/whl/torch-1.13.1+cpu.html
-pip install torchdrug
-python check_env.py
+jupyter notebook
 ```
 
-如果使用 GPU，需要保证 PyTorch、CUDA、`torch-scatter`、`torch-cluster` 的版本匹配。
+然后打开 `notebooks/TorchDrug_MindSpore_Reproduction.ipynb`。
 
-## 运行实验
+## 命令行运行实验
 
 冒烟测试：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 1 --batch_size 128 --seed 0
+python run_experiment.py --dataset bace --model gin --epoch 1 --batch_size 32 --seed 0
 ```
 
-四组正式实验：
+四组核心实验：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 256 --seed 0
-python run_experiment.py --dataset bace --model gat --epoch 50 --batch_size 256 --seed 0
-python run_experiment.py --dataset hiv --model gin --epoch 50 --batch_size 512 --seed 0
-python run_experiment.py --dataset hiv --model gat --epoch 50 --batch_size 512 --seed 0
+python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0
+python run_experiment.py --dataset bace --model gat --epoch 50 --batch_size 64 --seed 0
+python run_experiment.py --dataset hiv --model gin --epoch 50 --batch_size 64 --seed 0
+python run_experiment.py --dataset hiv --model gat --epoch 50 --batch_size 64 --seed 0
 ```
 
 一次运行 BACE / HIV 与 GIN / GAT 的 2×2 组合：
 
 ```bash
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 256 --seed 0
+python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 0
 ```
 
 多个随机种子：
 
 ```bash
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 256 --seed 1
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 256 --seed 2
+python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 1
+python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 2
 ```
 
-默认使用 scaffold split。如果需要随机划分对照：
+默认使用 scaffold split。若需要随机划分对照：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 256 --seed 0 --split random
+python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0 --split random
 ```
 
 ## 命令行参数
 
-课程要求的核心参数：
+核心参数：
 
 ```text
---dataset      bace / hiv / all
---model        gin / gat / all
---epoch        训练轮数
---batch_size   batch size
---seed         随机种子
+--dataset        bace / hiv / all
+--model          gin / gat / all
+--epoch          训练轮数
+--batch_size     batch size
+--seed           随机种子
 ```
 
-补充参数：
+其他参数：
 
 ```text
---split        scaffold 或 random，默认 scaffold
---lr           学习率，默认 1e-3
---hidden_dim   隐藏层维度，默认 256
---num_layer    GNN 层数，默认 4
---device       auto / cpu / cuda
+--split          scaffold / random，默认 scaffold
+--device_target  CPU / GPU / Ascend，默认 CPU
+--lr             学习率，默认 1e-3
+--hidden_dim     隐藏层维度，默认 128
+--num_layer      GNN 层数，默认 4
+--num_head       GAT 注意力头数，默认 4
+--dropout        dropout，默认 0.1
 ```
 
 ## 实验设计
@@ -147,71 +140,83 @@ python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 256 
 - BACE：BACE-1 抑制剂二分类任务，标签字段为 `Class`。
 - HIV：HIV replication inhibition 二分类任务，标签字段为 `HIV_active`。
 
+分子图构造：
+
+- 使用 RDKit 解析 SMILES。
+- 原子作为节点，化学键作为无向边。
+- 节点特征包含原子类型、度数、形式电荷、氢原子数、杂化类型、芳香性、环信息和相对原子质量。
+- batch 内使用 padding 得到稠密邻接矩阵和节点 mask。
+
 模型：
 
-- GIN：`models.GIN`，默认 4 层、每层 256 维，使用 shortcut、batch norm、concat hidden。
-- GAT：`models.GAT`，默认 4 层、每层 256 维，使用 4 个 attention heads。
+- GIN：邻居求和聚合，MLP 更新节点表示，masked mean pooling 得到图表示。
+- GAT：多头注意力，基于邻接矩阵做 masked softmax，聚合邻居节点表示。
 
-任务封装：
+训练：
 
-```python
-tasks.PropertyPrediction(
-    model,
-    task=dataset.tasks,
-    criterion="bce",
-    metric=("auroc", "auprc"),
-)
-```
+- MindSpore `BCEWithLogitsLoss`。
+- MindSpore `Adam` 优化器。
+- 指标为 AUROC 和 AUPRC。
 
-评价指标：
-
-- AUROC：衡量整体排序能力。
-- AUPRC：更适合类别不均衡的二分类任务。
-
-数据划分：
-
-- 默认 scaffold split，训练 / 验证 / 测试比例为 8:1:1。
-- `--seed` 控制随机性，便于复现实验。
-
-## 结果文件
+## 结果表
 
 结果会追加写入：
 
 ```text
-results/results.csv
+results/experiment_results.csv
 ```
 
 字段包括：
 
 ```text
-timestamp,dataset,model,seed,split,epoch,batch_size,
-valid_auroc,valid_auprc,test_auroc,test_auprc
+timestamp,framework,dataset,model,seed,split,epoch,batch_size,
+hidden_dim,num_layer,valid_auroc,valid_auprc,test_auroc,test_auprc
 ```
 
-这已经覆盖课程要求的 `dataset`、`model`、`seed`、valid/test AUROC、valid/test AUPRC。
+课程要求的 `dataset`、`model`、`seed`、valid/test AUROC、valid/test AUPRC 都已经包含。
 
-## 报告写法建议
+## 报告和 PPT
 
-报告可以按以下结构组织：
+报告大纲：
 
-1. 研究背景：说明虚拟筛选、分子活性预测和图神经网络的关系。
-2. 数据集介绍：说明 BACE、HIV 的任务目标、样本规模和标签含义。
-3. 方法：介绍 GIN、GAT，以及 TorchDrug `PropertyPrediction` 的作用。
-4. 实验设置：写清楚 scaffold split、BCE loss、AUROC/AUPRC、epoch、batch size、学习率和 seed。
-5. 结果：用 `results/results.csv` 汇总四组实验的验证集和测试集指标。
-6. 分析：比较 GIN 与 GAT，在 BACE 与 HIV 上分别分析 AUROC / AUPRC 差异。
-7. 结论：总结最佳模型，并说明局限性，例如未做预训练、调参有限、随机种子数量有限。
+```text
+docs/report_outline.md
+```
 
-建议至少跑 3 个随机种子，报告均值和标准差，结果会更有说服力。
+PPT 大纲：
 
-## 建议的 .gitignore
+```text
+docs/ppt_outline.md
+```
 
-```gitignore
-data/
-results/
-torchdrug/
-__pycache__/
-*.pyc
-*.pth
-*.pt
+建议报告中至少展示：
+
+- 原论文核心思想。
+- 本项目与原 TorchDrug 平台的关系和简化点。
+- RDKit 分子图构造方法。
+- MindSpore GIN/GAT 实现。
+- BACE/HIV 上的结果表。
+- AUROC/AUPRC 指标分析。
+
+## 参考链接
+
+- TorchDrug 论文：https://arxiv.org/abs/2202.08320
+- TorchDrug 项目：https://github.com/DeepGraphLearning/torchdrug
+- MindSpore 安装：https://www.mindspore.cn/install
+- RDKit：https://www.rdkit.org/
+
+## 建议的提交内容
+
+可以提交整个项目目录，但不要提交运行生成的大缓存：
+
+```text
+README.md
+requirements.txt
+check_env.py
+run_experiment.py
+src/
+notebooks/
+results/experiment_results.csv
+docs/
+.gitignore
 ```

@@ -1,0 +1,8 @@
+mindspore
+rdkit
+numpy
+scikit-learn
+pandas
+matplotlib
+notebook
+ipykernel
