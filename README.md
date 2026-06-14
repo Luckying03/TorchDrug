@@ -19,7 +19,7 @@
 ├── run_experiment.py
 ├── src/
 │   ├── __init__.py
-│   ├── dataset.py        # 下载 CSV、RDKit 构图、scaffold/random split、batch padding
+│   ├── dataset.py        # 下载 CSV、RDKit 构图、scaffold/random split、edge-list batch
 │   ├── features.py       # TorchDrug default atom/bond 特征与 SMILES -> graph
 │   ├── metrics.py        # AUROC / AUPRC
 │   ├── models.py         # MindSpore GIN / GAT
@@ -113,8 +113,9 @@ python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 -
 
 默认 `--variant torchdrug_like` 会尽量贴近 TorchDrug 的默认实现：
 
-- 节点特征：复刻 TorchDrug `features.atom.default`，69 维。
-- 边特征：复刻 TorchDrug `features.bond.default`，19 维。
+- 图表示：参考 TorchDrug 的 sparse edge-list，而不是 dense 邻接矩阵。
+- 节点特征：复刻 TorchDrug `features.atom.default`。
+- 边特征：复刻 TorchDrug `features.bond.default`。
 - 模型结构：edge feature 输入、BatchNorm、shortcut、concat hidden、sum readout。
 - 默认隐藏维度：256。
 
@@ -165,7 +166,7 @@ python run_experiment.py --dataset bace --model gin --variant torchdrug_like --e
 - 原子作为节点，化学键作为无向边。
 - 默认 `torchdrug_like` 特征复刻 TorchDrug `atom_default`：原子符号、手性、度数、形式电荷、氢原子数、自由基电子数、杂化、芳香性和环信息。
 - 默认 `torchdrug_like` 边特征复刻 TorchDrug `bond_default`：键类型、键方向、立体构型和共轭信息。
-- batch 内使用 padding 得到稠密邻接矩阵、边特征张量和节点 mask。
+- batch 内拼接所有分子的节点与边，形成 `node_feature`、`edge_list`、`edge_feature`、`node2graph`。这与 TorchDrug 的 sparse edge-list 思路一致，避免 dense 邻接矩阵的 `O(N^2)` 显存开销。
 
 模型：
 
@@ -190,7 +191,7 @@ results/experiment_results.csv
 字段包括：
 
 ```text
-timestamp,framework,dataset,model,variant,feature_set,seed,split,epoch,batch_size,
+timestamp,framework,dataset,model,variant,graph_format,feature_set,seed,split,epoch,batch_size,
 hidden_dim,num_layer,num_head,readout,num_mlp_layer,node_feature_dim,edge_feature_dim,
 valid_auroc,valid_auprc,test_auroc,test_auprc
 ```

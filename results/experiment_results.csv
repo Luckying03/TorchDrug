@@ -1,1 +1,1 @@
-timestamp,framework,dataset,model,variant,feature_set,seed,split,epoch,batch_size,hidden_dim,num_layer,num_head,readout,num_mlp_layer,node_feature_dim,edge_feature_dim,valid_auroc,valid_auprc,test_auroc,test_auprc
+timestamp,framework,dataset,model,variant,graph_format,feature_set,seed,split,epoch,batch_size,hidden_dim,num_layer,num_head,readout,num_mlp_layer,node_feature_dim,edge_feature_dim,valid_auroc,valid_auprc,test_auroc,test_auprc

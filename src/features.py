@@ -117,7 +117,7 @@ def bond_default(bond: Chem.rdchem.Bond) -> np.ndarray:
 
 
 def smiles_to_graph(smiles: str, label: float, feature_set: str = "torchdrug_default") -> Optional[Dict[str, np.ndarray]]:
-    """Convert a SMILES string into dense graph tensors.
+    """Convert a SMILES string into TorchDrug-style edge-list graph tensors.
 
     `feature_set="torchdrug_default"` mirrors TorchDrug's default atom/bond
     features. `feature_set="simple"` keeps the earlier compact baseline.
@@ -129,26 +129,34 @@ def smiles_to_graph(smiles: str, label: float, feature_set: str = "torchdrug_def
     atom_fn = atom_simple if feature_set == "simple" else atom_default
     node_feature = np.stack([atom_fn(atom) for atom in mol.GetAtoms()], axis=0)
     num_atom = mol.GetNumAtoms()
-    adjacency = np.zeros((num_atom, num_atom), dtype=np.float32)
-    edge_feature = np.zeros((num_atom, num_atom, bond_feature_dim(feature_set)), dtype=np.float32)
+    edge_list = []
+    edge_feature = []
 
     for bond in mol.GetBonds():
         begin = bond.GetBeginAtomIdx()
         end = bond.GetEndAtomIdx()
-        adjacency[begin, end] = 1.0
-        adjacency[end, begin] = 1.0
+        edge_list += [[begin, end], [end, begin]]
         if feature_set == "torchdrug_default":
             feature = bond_default(bond)
-            edge_feature[begin, end] = feature
-            edge_feature[end, begin] = feature
+        else:
+            feature = np.zeros((bond_feature_dim(feature_set),), dtype=np.float32)
+        edge_feature += [feature, feature]
+
+    if edge_list:
+        edge_list = np.asarray(edge_list, dtype=np.int32)
+        edge_feature = np.asarray(edge_feature, dtype=np.float32)
+    else:
+        edge_list = np.zeros((0, 2), dtype=np.int32)
+        edge_feature = np.zeros((0, bond_feature_dim(feature_set)), dtype=np.float32)
 
     return {
         "smiles": smiles,
         "node_feature": node_feature,
-        "adjacency": adjacency,
+        "edge_list": edge_list,
         "edge_feature": edge_feature,
         "label": np.asarray([label], dtype=np.float32),
         "num_node": np.asarray([num_atom], dtype=np.int32),
+        "num_edge": np.asarray([len(edge_list)], dtype=np.int32),
     }
 
 

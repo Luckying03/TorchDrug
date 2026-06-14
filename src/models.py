@@ -1,4 +1,4 @@
-"""MindSpore GIN / GAT models, with a TorchDrug-like reproduction variant."""
+"""MindSpore edge-list GIN / GAT models aligned with TorchDrug."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from mindspore import Tensor, nn, ops
 
 
 class MLP(nn.Cell):
-    """TorchDrug-style MLP: no activation / BN / dropout after the last layer."""
+    """TorchDrug-style MLP: no activation / dropout after the last layer."""
 
     def __init__(self, input_dim: int, hidden_dims: List[int], dropout: float = 0.0):
         super().__init__()
@@ -30,18 +30,17 @@ class MLP(nn.Cell):
         return hidden
 
 
-class NodeBatchNorm(nn.Cell):
-    """BatchNorm over padded node tensors of shape [batch, num_node, dim]."""
-
-    def __init__(self, dim: int):
+class SegmentOps(nn.Cell):
+    def __init__(self):
         super().__init__()
-        self.bn = nn.BatchNorm1d(dim)
+        self.segment_sum = ops.UnsortedSegmentSum()
+        self.gather = ops.Gather()
 
-    def construct(self, x):
-        batch_size, num_node, dim = x.shape
-        flat = ops.reshape(x, (batch_size * num_node, dim))
-        flat = self.bn(flat)
-        return ops.reshape(flat, (batch_size, num_node, dim))
+    def sum(self, data, segment_ids, num_segments):
+        return self.segment_sum(data, segment_ids, num_segments)
+
+    def gather_rows(self, data, indices):
+        return self.gather(data, indices, 0)
 
 
 class TorchDrugGINLayer(nn.Cell):
@@ -60,26 +59,29 @@ class TorchDrugGINLayer(nn.Cell):
         hidden_dims = [output_dim] * (num_mlp_layer - 1) + [output_dim]
         self.mlp = MLP(input_dim, hidden_dims)
         self.edge_linear = nn.Dense(edge_input_dim, input_dim) if edge_input_dim > 0 else None
-        self.batch_norm = NodeBatchNorm(output_dim) if batch_norm else None
+        self.batch_norm = nn.BatchNorm1d(output_dim) if batch_norm else None
         self.activation = nn.ReLU()
-        self.reduce_sum = ops.ReduceSum(keep_dims=False)
+        self.segment = SegmentOps()
 
-    def construct(self, node_feature, adjacency, edge_feature, node_mask):
-        neighbor_feature = ops.matmul(adjacency, node_feature)
+    def construct(self, node_feature, edge_list, edge_feature):
+        num_node = node_feature.shape[0]
+        node_in = edge_list[:, 0]
+        node_out = edge_list[:, 1]
+        message = self.segment.gather_rows(node_feature, node_in)
         if self.edge_linear is not None:
-            edge_message = self.edge_linear(edge_feature)
-            edge_message = edge_message * ops.expand_dims(adjacency, -1)
-            neighbor_feature = neighbor_feature + self.reduce_sum(edge_message, 2)
+            message = message + self.edge_linear(edge_feature)
+        update = self.segment.sum(message, node_out, num_node)
 
-        output = self.mlp((1.0 + self.eps) * node_feature + neighbor_feature)
+        output = self.mlp((1.0 + self.eps) * node_feature + update)
         if self.batch_norm is not None:
             output = self.batch_norm(output)
-        output = self.activation(output)
-        return output * ops.expand_dims(node_mask, -1)
+        return self.activation(output)
 
 
 class TorchDrugGATLayer(nn.Cell):
     """GAT convolution aligned with TorchDrug's GraphAttentionConv."""
+
+    eps = 1e-10
 
     def __init__(
         self,
@@ -102,47 +104,50 @@ class TorchDrugGATLayer(nn.Cell):
         self.edge_linear = nn.Dense(edge_input_dim, output_dim) if edge_input_dim > 0 else None
         query = np.random.normal(0, 0.1, size=(num_head, self.head_dim * 2)).astype(np.float32)
         self.query = ms.Parameter(Tensor(query, ms.float32), name="query")
-        self.batch_norm = NodeBatchNorm(output_dim) if batch_norm else None
+        self.batch_norm = nn.BatchNorm1d(output_dim) if batch_norm else None
         self.activation = nn.ReLU()
-        self.softmax = ops.Softmax(axis=-1)
+        self.segment = SegmentOps()
         self.reduce_sum = ops.ReduceSum(keep_dims=False)
+        self.concat0 = ops.Concat(axis=0)
+        self.concat_feature = ops.Concat(axis=2)
 
-    def construct(self, node_feature, adjacency, edge_feature, node_mask):
-        batch_size, num_node, _ = node_feature.shape
+    def construct(self, node_feature, edge_list, edge_feature, node_index):
+        num_node = node_feature.shape[0]
         hidden = self.linear(node_feature)
-        hidden = ops.reshape(hidden, (batch_size, num_node, self.num_head, self.head_dim))
-        hidden = ops.transpose(hidden, (0, 2, 1, 3))
+        hidden_heads = ops.reshape(hidden, (num_node, self.num_head, self.head_dim))
 
-        source_hidden = ops.expand_dims(hidden, 2)
-        target_hidden = ops.expand_dims(hidden, 3)
+        node_in = edge_list[:, 0]
+        node_out = edge_list[:, 1]
+        self_index = node_index
+        node_in = self.concat0((node_in, self_index))
+        node_out = self.concat0((node_out, self_index))
+
+        source = self.segment.gather_rows(hidden_heads, node_in)
+        target = self.segment.gather_rows(hidden_heads, node_out)
         if self.edge_linear is not None:
-            projected_edge = self.edge_linear(edge_feature)
-            projected_edge = projected_edge * ops.expand_dims(adjacency, -1)
-            projected_edge = ops.reshape(projected_edge, (batch_size, num_node, num_node, self.num_head, self.head_dim))
-            projected_edge = ops.transpose(projected_edge, (0, 3, 1, 2, 4))
-            source_hidden = source_hidden + projected_edge
-            target_hidden = target_hidden + projected_edge
+            edge_hidden = self.edge_linear(edge_feature)
+            edge_hidden = ops.reshape(edge_hidden, (-1, self.num_head, self.head_dim))
+            zero_edge = ops.zeros((num_node, self.num_head, self.head_dim), ms.float32)
+            edge_hidden = self.concat0((edge_hidden, zero_edge))
+            source = source + edge_hidden
+            target = target + edge_hidden
 
-        q_source = ops.reshape(self.query[:, :self.head_dim], (1, self.num_head, 1, 1, self.head_dim))
-        q_target = ops.reshape(self.query[:, self.head_dim:], (1, self.num_head, 1, 1, self.head_dim))
-        score = self.reduce_sum(source_hidden * q_source + target_hidden * q_target, -1)
+        key = self.concat_feature((source, target))
+        score = self.reduce_sum(key * ops.expand_dims(self.query, 0), -1)
         score = ops.maximum(score, score * self.negative_slope)
 
-        eye = ops.eye(num_node, num_node, ms.float32)
-        adjacency_with_self = adjacency + ops.expand_dims(eye, 0)
-        adjacency_with_self = ops.minimum(adjacency_with_self, ops.ones_like(adjacency_with_self))
-        valid_pair = ops.expand_dims(node_mask, 1) * ops.expand_dims(node_mask, 2)
-        edge_mask = ops.expand_dims(adjacency_with_self * valid_pair, 1)
-        score = score + (1.0 - edge_mask) * -1e9
+        exp_score = ops.exp(score)
+        normalizer = self.segment.sum(exp_score, node_out, num_node)
+        attention = exp_score / (self.segment.gather_rows(normalizer, node_out) + self.eps)
 
-        attention = self.softmax(score)
-        output = ops.matmul(attention, hidden)
-        output = ops.transpose(output, (0, 2, 1, 3))
-        output = ops.reshape(output, (batch_size, num_node, self.output_dim))
+        value = self.segment.gather_rows(hidden_heads, node_in)
+        message = attention[:, :, None] * value
+        message = ops.reshape(message, (-1, self.output_dim))
+        update = self.segment.sum(message, node_out, num_node)
+
         if self.batch_norm is not None:
-            output = self.batch_norm(output)
-        output = self.activation(output)
-        return output * ops.expand_dims(node_mask, -1)
+            update = self.batch_norm(update)
+        return self.activation(update)
 
 
 class GraphClassifier(nn.Cell):
@@ -167,29 +172,29 @@ class GraphClassifier(nn.Cell):
             self.classifier = nn.Dense(graph_dim, 1)
         else:
             self.classifier = MLP(graph_dim, [graph_dim] * (num_mlp_layer - 1) + [1], dropout=dropout)
-        self.concat = ops.Concat(axis=-1)
-        self.reduce_sum = ops.ReduceSum(keep_dims=False)
+        self.concat = ops.Concat(axis=1)
+        self.segment = SegmentOps()
 
-    def construct(self, node_feature, adjacency, edge_feature, node_mask):
+    def construct(self, node_feature, edge_list, edge_feature, node2graph, node_index, num_graph):
         h = node_feature
         hiddens = []
         for layer in self.layers:
-            hidden = layer(h, adjacency, edge_feature, node_mask)
+            hidden = layer(h, edge_list, edge_feature, node_index)
             if self.short_cut and hidden.shape == h.shape:
                 hidden = hidden + h
             hiddens.append(hidden)
             h = hidden
 
         node_output = self.concat(hiddens) if self.concat_hidden else hiddens[-1]
-        graph_feature = self.pool(node_output, node_mask)
+        graph_feature = self.pool(node_output, node2graph, num_graph)
         return self.classifier(graph_feature)
 
-    def pool(self, node_feature, node_mask):
-        mask = ops.expand_dims(node_mask, -1)
-        summed = self.reduce_sum(node_feature * mask, 1)
+    def pool(self, node_feature, node2graph, num_graph):
+        summed = self.segment.sum(node_feature, node2graph, num_graph)
         if self.readout == "sum":
             return summed
-        count = self.reduce_sum(mask, 1)
+        ones = ops.ones((node_feature.shape[0], 1), ms.float32)
+        count = self.segment.sum(ones, node2graph, num_graph)
         count = ops.maximum(count, ops.ones_like(count))
         return summed / count
 

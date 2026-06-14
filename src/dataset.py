@@ -111,7 +111,7 @@ def load_dataset(
 
     processed_dir = data_dir / "processed"
     processed_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = processed_dir / f"{name}_{feature_set}_graphs.pkl"
+    cache_path = processed_dir / f"{name}_{feature_set}_edgelist_graphs.pkl"
     if use_cache and cache_path.exists():
         with cache_path.open("rb") as fin:
             graphs = pickle.load(fin)
@@ -205,25 +205,35 @@ def split_dataset(
     raise ValueError(f"Unknown split `{split}`")
 
 
-def collate_batch(graphs: Sequence[Dict[str, np.ndarray]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def collate_batch(graphs: Sequence[Dict[str, np.ndarray]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     batch_size = len(graphs)
-    max_node = max(int(item["node_feature"].shape[0]) for item in graphs)
     feature_dim = int(graphs[0]["node_feature"].shape[-1])
     edge_feature_dim = int(graphs[0]["edge_feature"].shape[-1])
-    node_feature = np.zeros((batch_size, max_node, feature_dim), dtype=np.float32)
-    adjacency = np.zeros((batch_size, max_node, max_node), dtype=np.float32)
-    edge_feature = np.zeros((batch_size, max_node, max_node, edge_feature_dim), dtype=np.float32)
-    node_mask = np.zeros((batch_size, max_node), dtype=np.float32)
+    total_node = sum(int(item["node_feature"].shape[0]) for item in graphs)
+    total_edge = sum(int(item["edge_list"].shape[0]) for item in graphs)
+
+    node_feature = np.zeros((total_node, feature_dim), dtype=np.float32)
+    edge_list = np.zeros((total_edge, 2), dtype=np.int32)
+    edge_feature = np.zeros((total_edge, edge_feature_dim), dtype=np.float32)
+    node2graph = np.zeros((total_node,), dtype=np.int32)
+    node_index = np.arange(total_node, dtype=np.int32)
     label = np.zeros((batch_size, 1), dtype=np.float32)
 
+    node_offset = 0
+    edge_offset = 0
     for i, item in enumerate(graphs):
         num_node = int(item["node_feature"].shape[0])
-        node_feature[i, :num_node] = item["node_feature"]
-        adjacency[i, :num_node, :num_node] = item["adjacency"]
-        edge_feature[i, :num_node, :num_node] = item["edge_feature"]
-        node_mask[i, :num_node] = 1.0
+        num_edge = int(item["edge_list"].shape[0])
+        node_feature[node_offset:node_offset + num_node] = item["node_feature"]
+        node2graph[node_offset:node_offset + num_node] = i
+        if num_edge:
+            edge_list[edge_offset:edge_offset + num_edge] = item["edge_list"] + node_offset
+            edge_feature[edge_offset:edge_offset + num_edge] = item["edge_feature"]
         label[i] = item["label"]
-    return node_feature, adjacency, edge_feature, node_mask, label
+        node_offset += num_node
+        edge_offset += num_edge
+
+    return node_feature, edge_list, edge_feature, node2graph, node_index, label
 
 
 def batch_iterator(
@@ -231,7 +241,7 @@ def batch_iterator(
     batch_size: int,
     shuffle: bool,
     seed: int,
-) -> Iterable[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+) -> Iterable[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     indices = list(range(len(dataset)))
     if shuffle:
         random.Random(seed).shuffle(indices)

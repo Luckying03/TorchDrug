@@ -22,12 +22,13 @@ class TrainConfig:
 
 
 def to_tensor_batch(batch):
-    node_feature, adjacency, edge_feature, node_mask, label = batch
+    node_feature, edge_list, edge_feature, node2graph, node_index, label = batch
     return (
         Tensor(node_feature, ms.float32),
-        Tensor(adjacency, ms.float32),
+        Tensor(edge_list, ms.int32),
         Tensor(edge_feature, ms.float32),
-        Tensor(node_mask, ms.float32),
+        Tensor(node2graph, ms.int32),
+        Tensor(node_index, ms.int32),
         Tensor(label, ms.float32),
     )
 
@@ -36,16 +37,16 @@ def train_one_epoch(model: nn.Cell, optimizer: nn.Optimizer, dataset: MoleculeDa
     loss_fn = nn.BCEWithLogitsLoss(reduction="mean")
     model.set_train(True)
 
-    def forward_fn(node_feature, adjacency, edge_feature, node_mask, label):
-        logits = model(node_feature, adjacency, edge_feature, node_mask)
+    def forward_fn(node_feature, edge_list, edge_feature, node2graph, node_index, label):
+        logits = model(node_feature, edge_list, edge_feature, node2graph, node_index, label.shape[0])
         loss = loss_fn(logits, label)
         return loss
 
     grad_fn = ms.value_and_grad(forward_fn, None, optimizer.parameters)
     losses = []
     for batch_id, batch in enumerate(batch_iterator(dataset, config.batch_size, shuffle=True, seed=config.seed)):
-        node_feature, adjacency, edge_feature, node_mask, label = to_tensor_batch(batch)
-        loss, grads = grad_fn(node_feature, adjacency, edge_feature, node_mask, label)
+        node_feature, edge_list, edge_feature, node2graph, node_index, label = to_tensor_batch(batch)
+        loss, grads = grad_fn(node_feature, edge_list, edge_feature, node2graph, node_index, label)
         optimizer(grads)
         losses.append(float(loss.asnumpy()))
     return float(np.mean(losses)) if losses else float("nan")
@@ -55,8 +56,8 @@ def evaluate(model: nn.Cell, dataset: MoleculeDataset, batch_size: int) -> Dict[
     model.set_train(False)
     logits_list, labels_list = [], []
     for batch in batch_iterator(dataset, batch_size, shuffle=False, seed=0):
-        node_feature, adjacency, edge_feature, node_mask, label = to_tensor_batch(batch)
-        logits = model(node_feature, adjacency, edge_feature, node_mask)
+        node_feature, edge_list, edge_feature, node2graph, node_index, label = to_tensor_batch(batch)
+        logits = model(node_feature, edge_list, edge_feature, node2graph, node_index, label.shape[0])
         logits_list.append(logits.asnumpy())
         labels_list.append(label.asnumpy())
     logits = np.concatenate(logits_list, axis=0)

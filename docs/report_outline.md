@@ -31,12 +31,14 @@
 - 为尽量贴近 TorchDrug，本项目默认复刻 `features.atom.default` 与 `features.bond.default`。
 - 节点特征包括原子符号、手性、度数、形式电荷、氢原子数、自由基电子数、杂化、芳香性和环信息，共 69 维。
 - 边特征包括键类型、键方向、立体构型和共轭信息，共 19 维。
-- 邻接矩阵由 RDKit 化学键生成，使用无向图表示分子结构。
+- 图结构使用 TorchDrug 风格的 sparse edge-list：`edge_list` 存储真实有向边，`edge_feature` 存储每条边的键特征，`node2graph` 标识 batch 中节点所属分子。
+- 与 dense 邻接矩阵相比，edge-list 避免 `O(N^2)` 显存开销，更接近 TorchDrug 的实现。
 
 ### 4.2 GIN 模型
 
 - 每层计算邻居节点表示求和。
 - 边特征经过线性映射后加入消息聚合，贴近 TorchDrug 的 `edge_input_dim` 机制。
+- 使用 MindSpore gather 与 unsorted segment sum 完成 `source -> target` 消息聚合。
 - 使用 MLP 更新节点表示。
 - 使用 BatchNorm、shortcut、concat hidden 和 sum readout，贴近 TorchDrug GIN 默认可选结构。
 
@@ -44,7 +46,7 @@
 
 - 使用多头注意力计算相邻节点的重要性。
 - 边特征加入 attention key，贴近 TorchDrug GAT 的 edge-aware attention。
-- 在邻接矩阵范围内做 masked softmax。
+- 在 edge-list 定义的真实边和自环上计算注意力，并按目标节点归一化。
 - 聚合邻居表示并得到图级表示。
 
 ### 4.4 训练目标
