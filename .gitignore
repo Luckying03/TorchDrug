@@ -1,0 +1,7 @@
+data/
+results/
+torchdrug/
+__pycache__/
+*.pyc
+*.pth
+*.pt
