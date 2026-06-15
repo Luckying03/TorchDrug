@@ -1,0 +1,51 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{BUAAReport}[2026/06/15 lightweight report cover helpers]
+
+\RequirePackage{titling}
+\RequirePackage{graphicx}
+
+\makeatletter
+\long\def\title#1{\gdef\@title{#1}\gdef\thetitle{#1}}
+\long\def\author#1{\gdef\@author{#1}\gdef\theauthor{#1}}
+\makeatother
+
+\newcommand{\dlmu}[2][4cm]{\underline{\makebox[#1][c]{#2}}}
+
+\newcommand{\BUAALogo}{%
+  \IfFileExists{figures/buaa_logoname.eps}{%
+    \includegraphics[width=0.62\textwidth]{figures/buaa_logoname.eps}%
+  }{%
+    \IfFileExists{latex/figures/buaa_logoname.eps}{%
+      \includegraphics[width=0.62\textwidth]{latex/figures/buaa_logoname.eps}%
+    }{%
+      \IfFileExists{figures/buaa_logo_black.eps}{%
+        \includegraphics[height=1.8cm]{figures/buaa_logo_black.eps}\quad
+        \includegraphics[height=1.5cm]{figures/buaa_name_black.eps}%
+      }{%
+        \IfFileExists{latex/figures/buaa_logo_black.eps}{%
+          \includegraphics[height=1.8cm]{latex/figures/buaa_logo_black.eps}\quad
+          \includegraphics[height=1.5cm]{latex/figures/buaa_name_black.eps}%
+        }{%
+          {\heiti\LARGE 北京航空航天大学}%
+        }%
+      }%
+    }%
+  }%
+}
+
+\newcommand{\cover}{%
+  \begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+    \vspace*{0.8cm}
+    \BUAALogo\par
+    \vspace{0.8cm}
+    \thetitle
+    \vfill
+    \theauthor
+    \vfill
+    {\large \thedate\par}
+  \end{titlepage}
+}
+
+\endinput
