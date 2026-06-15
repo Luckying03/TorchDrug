@@ -112,6 +112,8 @@ class TorchDrugGATLayer(nn.Cell):
         self.reduce_sum = ops.ReduceSum(keep_dims=False)
         self.concat0 = ops.Concat(axis=0)
         self.concat_feature = ops.Concat(axis=2)
+        self.score_min = Tensor(np.asarray(-20.0, dtype=np.float32), ms.float32)
+        self.score_max = Tensor(np.asarray(20.0, dtype=np.float32), ms.float32)
 
     def construct(self, node_feature, edge_list, edge_feature, node_index):
         num_node = node_feature.shape[0]
@@ -137,6 +139,7 @@ class TorchDrugGATLayer(nn.Cell):
         key = self.concat_feature((source, target))
         score = self.reduce_sum(key * ops.expand_dims(self.query, 0), -1)
         score = ops.maximum(score, score * self.negative_slope)
+        score = ops.minimum(ops.maximum(score, self.score_min), self.score_max)
 
         exp_score = ops.exp(score)
         normalizer = self.segment.sum(exp_score, node_out, num_node)

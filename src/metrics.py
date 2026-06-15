@@ -9,6 +9,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
+    x = np.clip(x, -50, 50)
     return 1.0 / (1.0 + np.exp(-x))
 
 
