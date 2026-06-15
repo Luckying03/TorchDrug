@@ -84,29 +84,29 @@ python run_experiment.py --dataset bace --model gin --epoch 1 --batch_size 32 --
 四组核心实验：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0 --device_target GPU
-python run_experiment.py --dataset bace --model gat --epoch 50 --batch_size 64 --seed 0 --device_target GPU
-python run_experiment.py --dataset hiv --model gin --epoch 50 --batch_size 64 --seed 0 --device_target GPU
-python run_experiment.py --dataset hiv --model gat --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset bace --model gin --epoch 100 --batch_size 256 --seed 0 --device_target GPU --selection best_valid_auroc
+python run_experiment.py --dataset bace --model gat --epoch 100 --batch_size 256 --seed 0 --device_target GPU --selection best_valid_auroc
+python run_experiment.py --dataset hiv --model gin --epoch 100 --batch_size 256 --seed 0 --split random --device_target GPU --selection best_valid_auroc
+python run_experiment.py --dataset hiv --model gat --epoch 100 --batch_size 256 --seed 0 --split random --device_target GPU --selection best_valid_auroc
 ```
 
 一次运行 BACE / HIV 与 GIN / GAT 的 2×2 组合：
 
 ```bash
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset all --model all --epoch 100 --batch_size 256 --seed 0 --device_target GPU --selection best_valid_auroc
 ```
 
 多个随机种子：
 
 ```bash
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 1 --device_target GPU
-python run_experiment.py --dataset all --model all --epoch 50 --batch_size 64 --seed 2 --device_target GPU
+python run_experiment.py --dataset all --model all --epoch 100 --batch_size 256 --seed 1 --device_target GPU --selection best_valid_auroc
+python run_experiment.py --dataset all --model all --epoch 100 --batch_size 256 --seed 2 --device_target GPU --selection best_valid_auroc
 ```
 
 默认使用 scaffold split。若需要随机划分对照：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 --seed 0 --split random --device_target GPU
+python run_experiment.py --dataset bace --model gin --epoch 100 --batch_size 256 --seed 0 --split random --device_target GPU --selection best_valid_auroc
 ```
 
 ## 对比实验
@@ -122,8 +122,8 @@ python run_experiment.py --dataset bace --model gin --epoch 50 --batch_size 64 -
 若要和早期教学简化版对比，可以运行 `--variant simple`：
 
 ```bash
-python run_experiment.py --dataset bace --model gin --variant simple --epoch 50 --batch_size 64 --seed 0 --device_target GPU
-python run_experiment.py --dataset bace --model gin --variant torchdrug_like --epoch 50 --batch_size 64 --seed 0 --device_target GPU
+python run_experiment.py --dataset bace --model gin --variant simple --epoch 100 --batch_size 256 --seed 0 --device_target GPU --selection best_valid_auroc
+python run_experiment.py --dataset bace --model gin --variant torchdrug_like --epoch 100 --batch_size 256 --seed 0 --device_target GPU --selection best_valid_auroc
 ```
 
 ## 命令行参数
@@ -142,9 +142,10 @@ python run_experiment.py --dataset bace --model gin --variant torchdrug_like --e
 
 ```text
 --split          scaffold / random，默认 scaffold
+--selection      best_valid_auroc / final，默认 best_valid_auroc
 --device_target  CPU / GPU / Ascend，默认 CPU
 --lr             学习率，默认 1e-3
---hidden_dim     隐藏层维度，默认 128
+--hidden_dim     隐藏层维度，默认 256
 --num_layer      GNN 层数，默认 4
 --num_head       GAT 注意力头数，默认 4
 --dropout        dropout，默认 0.1
@@ -191,8 +192,8 @@ results/experiment_results.csv
 字段包括：
 
 ```text
-timestamp,framework,dataset,model,variant,graph_format,feature_set,seed,split,epoch,batch_size,
-hidden_dim,num_layer,num_head,readout,num_mlp_layer,node_feature_dim,edge_feature_dim,
+timestamp,framework,dataset,model,variant,graph_format,feature_set,seed,split,selection,selected_epoch,
+epoch,batch_size,hidden_dim,num_layer,num_head,readout,num_mlp_layer,node_feature_dim,edge_feature_dim,
 valid_auroc,valid_auprc,test_auroc,test_auprc
 ```
 

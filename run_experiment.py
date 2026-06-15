@@ -17,10 +17,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="MindSpore molecular activity prediction.")
     parser.add_argument("--dataset", choices=["bace", "hiv", "all"], required=True)
     parser.add_argument("--model", choices=["gin", "gat", "all"], required=True)
-    parser.add_argument("--epoch", type=int, default=50)
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--epoch", type=int, default=100)
+    parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--split", choices=["scaffold", "random"], default="scaffold")
+    parser.add_argument("--selection", choices=["best_valid_auroc", "final"], default="best_valid_auroc")
     parser.add_argument("--data_dir", type=Path, default=PROJECT_ROOT / "data")
     parser.add_argument("--result_csv", type=Path, default=PROJECT_ROOT / "results" / "experiment_results.csv")
     parser.add_argument("--device_target", choices=["CPU", "GPU", "Ascend"], default="CPU")
@@ -69,6 +70,8 @@ def append_result(csv_path: Path, row: Dict[str, object]) -> None:
         "feature_set",
         "seed",
         "split",
+        "selection",
+        "selected_epoch",
         "epoch",
         "batch_size",
         "hidden_dim",
@@ -119,6 +122,10 @@ def run_one(args: argparse.Namespace, dataset_name: str, model_name: str) -> Dic
         f"split sizes: train={len(train_set)}, valid={len(valid_set)}, test={len(test_set)} | "
         f"node feature dim={dataset.node_feature_dim}, edge feature dim={dataset.edge_feature_dim}"
     )
+    print(
+        f"hyperparameters: hidden_dim={args.hidden_dim}, num_layer={args.num_layer}, "
+        f"batch_size={args.batch_size}, epoch={args.epoch}, selection={args.selection}"
+    )
 
     model = build_model(
         model_name,
@@ -132,8 +139,14 @@ def run_one(args: argparse.Namespace, dataset_name: str, model_name: str) -> Dic
         readout=args.readout,
         num_mlp_layer=args.num_mlp_layer,
     )
-    config = TrainConfig(epoch=args.epoch, batch_size=args.batch_size, lr=args.lr, seed=args.seed)
-    valid_metrics, test_metrics = fit(model, train_set, valid_set, test_set, config)
+    config = TrainConfig(
+        epoch=args.epoch,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        seed=args.seed,
+        selection=args.selection,
+    )
+    valid_metrics, test_metrics, selected_epoch = fit(model, train_set, valid_set, test_set, config)
 
     row = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -145,6 +158,8 @@ def run_one(args: argparse.Namespace, dataset_name: str, model_name: str) -> Dic
         "feature_set": feature_set,
         "seed": args.seed,
         "split": args.split,
+        "selection": args.selection,
+        "selected_epoch": selected_epoch,
         "epoch": args.epoch,
         "batch_size": args.batch_size,
         "hidden_dim": args.hidden_dim,
@@ -162,6 +177,7 @@ def run_one(args: argparse.Namespace, dataset_name: str, model_name: str) -> Dic
     append_result(args.result_csv, row)
     print(
         "saved result | "
+        f"selection={args.selection} epoch={selected_epoch} | "
         f"valid AUROC={row['valid_auroc']:.4f}, valid AUPRC={row['valid_auprc']:.4f}, "
         f"test AUROC={row['test_auroc']:.4f}, test AUPRC={row['test_auprc']:.4f}"
     )

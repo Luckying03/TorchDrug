@@ -7,6 +7,7 @@ import hashlib
 import pickle
 import random
 import urllib.request
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -168,27 +169,38 @@ def scaffold_split(
     seed: int,
     fractions: Tuple[float, float, float] = (0.8, 0.1, 0.1),
 ) -> Tuple[MoleculeDataset, MoleculeDataset, MoleculeDataset]:
-    scaffold_to_indices: Dict[str, List[int]] = {}
+    """TorchDrug ordered_scaffold_split compatible split.
+
+    TorchDrug sorts molecules inside each scaffold and then sorts scaffold
+    groups by ``(group_size, first_index)`` in descending order. Keeping this
+    order exactly makes small datasets such as BACE easier to compare.
+    """
+    _ = seed
+    scaffold_to_indices: Dict[str, List[int]] = defaultdict(list)
     for index, smiles in enumerate(dataset.smiles):
         scaffold = MurckoScaffold.MurckoScaffoldSmiles(smiles=smiles, includeChirality=True)
-        scaffold_to_indices.setdefault(scaffold, []).append(index)
+        scaffold_to_indices[scaffold].append(index)
 
-    rng = random.Random(seed)
-    scaffold_sets = list(scaffold_to_indices.values())
-    for scaffold_set in scaffold_sets:
-        rng.shuffle(scaffold_set)
-    scaffold_sets.sort(key=lambda item: (len(item), item[0]), reverse=True)
+    scaffold_sets = [
+        sorted(scaffold_set)
+        for _, scaffold_set in sorted(
+            scaffold_to_indices.items(),
+            key=lambda item: (len(item[1]), sorted(item[1])[0]),
+            reverse=True,
+        )
+    ]
 
     train_cutoff = fractions[0] * len(dataset)
     valid_cutoff = (fractions[0] + fractions[1]) * len(dataset)
     train_indices, valid_indices, test_indices = [], [], []
     for scaffold_set in scaffold_sets:
-        if len(train_indices) + len(scaffold_set) <= train_cutoff:
-            train_indices.extend(scaffold_set)
-        elif len(train_indices) + len(valid_indices) + len(scaffold_set) <= valid_cutoff:
-            valid_indices.extend(scaffold_set)
+        if len(train_indices) + len(scaffold_set) > train_cutoff:
+            if len(train_indices) + len(valid_indices) + len(scaffold_set) > valid_cutoff:
+                test_indices.extend(scaffold_set)
+            else:
+                valid_indices.extend(scaffold_set)
         else:
-            test_indices.extend(scaffold_set)
+            train_indices.extend(scaffold_set)
 
     return subset(dataset, train_indices), subset(dataset, valid_indices), subset(dataset, test_indices)
 

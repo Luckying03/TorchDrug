@@ -34,10 +34,14 @@ class SegmentOps(nn.Cell):
     def __init__(self):
         super().__init__()
         self.segment_sum = ops.UnsortedSegmentSum()
+        self.segment_max = ops.UnsortedSegmentMax()
         self.gather = ops.Gather()
 
     def sum(self, data, segment_ids, num_segments):
         return self.segment_sum(data, segment_ids, num_segments)
+
+    def max(self, data, segment_ids, num_segments):
+        return self.segment_max(data, segment_ids, num_segments)
 
     def gather_rows(self, data, indices):
         return self.gather(data, indices, 0)
@@ -104,7 +108,10 @@ class TorchDrugGATLayer(nn.Cell):
 
         self.linear = nn.Dense(input_dim, output_dim)
         self.edge_linear = nn.Dense(edge_input_dim, output_dim) if edge_input_dim > 0 else None
-        query = np.random.normal(0, 0.1, size=(num_head, self.head_dim * 2)).astype(np.float32)
+        fan_in = self.head_dim * 2
+        gain = np.sqrt(2.0 / (1.0 + negative_slope ** 2))
+        bound = np.sqrt(3.0) * gain / np.sqrt(fan_in)
+        query = np.random.uniform(-bound, bound, size=(num_head, self.head_dim * 2)).astype(np.float32)
         self.query = ms.Parameter(Tensor(query, ms.float32), name="query")
         self.batch_norm = nn.BatchNorm1d(output_dim) if batch_norm else None
         self.activation = nn.ReLU()
@@ -112,8 +119,6 @@ class TorchDrugGATLayer(nn.Cell):
         self.reduce_sum = ops.ReduceSum(keep_dims=False)
         self.concat0 = ops.Concat(axis=0)
         self.concat_feature = ops.Concat(axis=2)
-        self.score_min = Tensor(np.asarray(-20.0, dtype=np.float32), ms.float32)
-        self.score_max = Tensor(np.asarray(20.0, dtype=np.float32), ms.float32)
 
     def construct(self, node_feature, edge_list, edge_feature, node_index):
         num_node = node_feature.shape[0]
@@ -139,7 +144,7 @@ class TorchDrugGATLayer(nn.Cell):
         key = self.concat_feature((source, target))
         score = self.reduce_sum(key * ops.expand_dims(self.query, 0), -1)
         score = ops.maximum(score, score * self.negative_slope)
-        score = ops.minimum(ops.maximum(score, self.score_min), self.score_max)
+        score = score - self.segment.gather_rows(self.segment.max(score, node_out, num_node), node_out)
 
         exp_score = ops.exp(score)
         normalizer = self.segment.sum(exp_score, node_out, num_node)

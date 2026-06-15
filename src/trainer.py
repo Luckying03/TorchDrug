@@ -15,10 +15,11 @@ from .metrics import binary_classification_metrics
 
 @dataclass
 class TrainConfig:
-    epoch: int = 50
-    batch_size: int = 64
+    epoch: int = 100
+    batch_size: int = 256
     lr: float = 1e-3
     seed: int = 0
+    selection: str = "best_valid_auroc"
 
 
 def to_tensor_batch(batch):
@@ -71,22 +72,36 @@ def fit(
     valid_set: MoleculeDataset,
     test_set: MoleculeDataset,
     config: TrainConfig,
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+) -> Tuple[Dict[str, float], Dict[str, float], int]:
+    if config.selection not in {"best_valid_auroc", "final"}:
+        raise ValueError(f"Unknown selection `{config.selection}`")
+
     optimizer = nn.Adam(model.trainable_params(), learning_rate=config.lr)
     best_valid = {"auroc": -1.0, "auprc": -1.0}
     best_test = {"auroc": float("nan"), "auprc": float("nan")}
+    best_epoch = 0
+    final_valid = best_valid
+    final_test = best_test
 
     for epoch in range(1, config.epoch + 1):
         train_loss = train_one_epoch(model, optimizer, train_set, config)
         valid_metrics = evaluate(model, valid_set, config.batch_size)
         test_metrics = evaluate(model, test_set, config.batch_size)
+        final_valid = valid_metrics
+        final_test = test_metrics
         if np.isnan(best_valid["auroc"]) or valid_metrics["auroc"] > best_valid["auroc"]:
             best_valid = valid_metrics
             best_test = test_metrics
+            best_epoch = epoch
         print(
             f"epoch {epoch:03d} | loss {train_loss:.4f} | "
             f"valid AUROC {valid_metrics['auroc']:.4f} AUPRC {valid_metrics['auprc']:.4f} | "
             f"test AUROC {test_metrics['auroc']:.4f} AUPRC {test_metrics['auprc']:.4f}"
         )
 
-    return best_valid, best_test
+    if config.selection == "final":
+        print(f"selected final epoch {config.epoch:03d}")
+        return final_valid, final_test, config.epoch
+
+    print(f"selected best valid AUROC epoch {best_epoch:03d}")
+    return best_valid, best_test, best_epoch
