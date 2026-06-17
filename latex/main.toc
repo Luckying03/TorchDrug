@@ -28,7 +28,7 @@
 \contentsline {subsection}{\numberline {7.1}数据集与预测任务}{12}{subsection.7.1}%
 \contentsline {subsection}{\numberline {7.2}特征构造与模型配置}{13}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}训练协议与结果记录}{14}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}运行命令}{14}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.4}Notebook 运行方式}{14}{subsection.7.4}%
 \contentsline {section}{\numberline {8}复现结果}{15}{section.8}%
 \contentsline {subsection}{\numberline {8.1}MindSpore 复现结果}{15}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}TorchDrug 对照结果}{16}{subsection.8.2}%
@@ -37,8 +37,7 @@
 \contentsline {subsection}{\numberline {9.1}BACE 数据集分析}{18}{subsection.9.1}%
 \contentsline {subsection}{\numberline {9.2}HIV 数据集分析}{19}{subsection.9.2}%
 \contentsline {subsection}{\numberline {9.3}GIN 与 GAT 对比}{19}{subsection.9.3}%
-\contentsline {subsection}{\numberline {9.4}跨框架差异来源}{20}{subsection.9.4}%
-\contentsline {subsection}{\numberline {9.5}实验充分性讨论}{20}{subsection.9.5}%
-\contentsline {subsection}{\numberline {9.6}课程目标完成情况}{21}{subsection.9.6}%
-\contentsline {section}{\numberline {10}局限性与改进方向}{21}{section.10}%
-\contentsline {section}{\numberline {11}结论}{22}{section.11}%
+\contentsline {subsection}{\numberline {9.4}跨框架差异来源}{19}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}课程目标完成情况}{20}{subsection.9.5}%
+\contentsline {section}{\numberline {10}局限性与改进方向}{20}{section.10}%
+\contentsline {section}{\numberline {11}结论}{21}{section.11}%
