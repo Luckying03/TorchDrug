@@ -20,7 +20,7 @@
 \contentsline {subsection}{\numberline {5.5}GAT 模型}{9}{subsection.5.5}%
 \contentsline {section}{\numberline {6}复现实现}{9}{section.6}%
 \contentsline {subsection}{\numberline {6.1}代码结构}{9}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}实验协议对齐}{9}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.2}实验对齐}{9}{subsection.6.2}%
 \contentsline {subsection}{\numberline {6.3}关键实现片段}{10}{subsection.6.3}%
 \contentsline {subsection}{\numberline {6.4}训练与评估循环}{11}{subsection.6.4}%
 \contentsline {subsection}{\numberline {6.5}项目管理}{11}{subsection.6.5}%
@@ -28,16 +28,16 @@
 \contentsline {subsection}{\numberline {7.1}数据集与预测任务}{12}{subsection.7.1}%
 \contentsline {subsection}{\numberline {7.2}特征构造与模型配置}{13}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}训练协议与结果记录}{14}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Notebook 运行方式}{14}{subsection.7.4}%
-\contentsline {section}{\numberline {8}复现结果}{15}{section.8}%
-\contentsline {subsection}{\numberline {8.1}MindSpore 复现结果}{15}{subsection.8.1}%
+\contentsline {subsection}{\numberline {7.4}Notebook 运行方式}{15}{subsection.7.4}%
+\contentsline {section}{\numberline {8}复现结果}{16}{section.8}%
+\contentsline {subsection}{\numberline {8.1}MindSpore 复现结果}{16}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}TorchDrug 对照结果}{16}{subsection.8.2}%
 \contentsline {subsection}{\numberline {8.3}跨框架差异与可视化}{16}{subsection.8.3}%
-\contentsline {section}{\numberline {9}结果分析}{18}{section.9}%
-\contentsline {subsection}{\numberline {9.1}BACE 数据集分析}{18}{subsection.9.1}%
+\contentsline {section}{\numberline {9}结果分析}{19}{section.9}%
+\contentsline {subsection}{\numberline {9.1}BACE 数据集分析}{19}{subsection.9.1}%
 \contentsline {subsection}{\numberline {9.2}HIV 数据集分析}{19}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}GIN 与 GAT 对比}{19}{subsection.9.3}%
-\contentsline {subsection}{\numberline {9.4}跨框架差异来源}{19}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.3}GIN 与 GAT 对比}{20}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}跨框架差异来源}{20}{subsection.9.4}%
 \contentsline {subsection}{\numberline {9.5}课程目标完成情况}{20}{subsection.9.5}%
-\contentsline {section}{\numberline {10}局限性与改进方向}{20}{section.10}%
-\contentsline {section}{\numberline {11}结论}{21}{section.11}%
+\contentsline {section}{\numberline {10}局限性与改进方向}{21}{section.10}%
+\contentsline {section}{\numberline {11}结论}{22}{section.11}%
