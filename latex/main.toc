@@ -1,13 +1,44 @@
 \contentsline {section}{\numberline {1}小组基础信息}{1}{section.1}%
 \contentsline {section}{\numberline {2}背景介绍}{1}{section.2}%
+\contentsline {subsection}{\numberline {2.1}药物虚拟筛选背景}{1}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}分子图表示}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}复现任务选择}{2}{subsection.2.3}%
 \contentsline {section}{\numberline {3}问题定义}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}图级二分类形式化}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}模型输出与训练目标}{3}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}评价指标}{4}{subsection.3.3}%
 \contentsline {section}{\numberline {4}研究现状}{4}{section.4}%
-\contentsline {section}{\numberline {5}论文方法}{5}{section.5}%
-\contentsline {section}{\numberline {6}复现实现}{8}{section.6}%
-\contentsline {section}{\numberline {7}实验设置}{10}{section.7}%
-\contentsline {section}{\numberline {8}复现结果}{11}{section.8}%
-\contentsline {subsection}{\numberline {8.1}MindSpore 复现结果}{11}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}TorchDrug 对照结果}{11}{subsection.8.2}%
-\contentsline {section}{\numberline {9}结果分析}{13}{section.9}%
-\contentsline {section}{\numberline {10}局限性与改进方向}{14}{section.10}%
-\contentsline {section}{\numberline {11}结论}{15}{section.11}%
+\contentsline {subsection}{\numberline {4.1}传统分子表示与基准数据集}{4}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}图神经网络方法}{5}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}平台化复现需求}{5}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}MindSpore 复现意义}{6}{subsection.4.4}%
+\contentsline {section}{\numberline {5}论文方法}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}TorchDrug 平台架构}{6}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}分子性质预测流程}{7}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}图表示与特征}{8}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}GIN 模型}{8}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}GAT 模型}{9}{subsection.5.5}%
+\contentsline {section}{\numberline {6}复现实现}{9}{section.6}%
+\contentsline {subsection}{\numberline {6.1}代码结构}{9}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}实验协议对齐}{9}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}关键实现片段}{10}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}训练与评估循环}{11}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}项目管理}{11}{subsection.6.5}%
+\contentsline {section}{\numberline {7}实验设置}{12}{section.7}%
+\contentsline {subsection}{\numberline {7.1}数据集与预测任务}{12}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}特征构造与模型配置}{13}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}训练协议与结果记录}{14}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}运行命令}{14}{subsection.7.4}%
+\contentsline {section}{\numberline {8}复现结果}{15}{section.8}%
+\contentsline {subsection}{\numberline {8.1}MindSpore 复现结果}{15}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}TorchDrug 对照结果}{16}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}跨框架差异与可视化}{16}{subsection.8.3}%
+\contentsline {section}{\numberline {9}结果分析}{18}{section.9}%
+\contentsline {subsection}{\numberline {9.1}BACE 数据集分析}{18}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}HIV 数据集分析}{19}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}GIN 与 GAT 对比}{19}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}跨框架差异来源}{20}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}实验充分性讨论}{20}{subsection.9.5}%
+\contentsline {subsection}{\numberline {9.6}课程目标完成情况}{21}{subsection.9.6}%
+\contentsline {section}{\numberline {10}局限性与改进方向}{21}{section.10}%
+\contentsline {section}{\numberline {11}结论}{22}{section.11}%
