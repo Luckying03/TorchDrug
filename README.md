@@ -1,4 +1,4 @@
-# 基于 MindSpore 的 TorchDrug 简化复现
+# 基于 MindSpore 的 TorchDrug 复现
 
 选题论文：**TorchDrug: A Powerful and Flexible Machine Learning Platform for Drug Discovery**。
 
@@ -49,8 +49,6 @@ DEVICE_TARGET = "GPU"
 FULL_EPOCH = 100
 SEED = 0
 ```
-
-如果只是先检查流程，可以把 `FULL_EPOCH` 改成 `1`。正式实验再改回 `100`。
 
 ## 实验设置
 
