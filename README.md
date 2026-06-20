@@ -28,7 +28,7 @@
 
 ## 环境
 
-我在华为云 MindSpore CUDA 镜像中运行，环境名为 `MindSpore`。
+在华为云 MindSpore CUDA 镜像中运行，环境名为 `MindSpore`。
 
 ```bash
 conda activate MindSpore
@@ -36,9 +36,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 python check_env.py
 ```
 
-
 ## 运行
-
 
 打开 `run.ipynb`，选择 `MindSpore` 内核，然后按顺序运行全部代码块。
 
